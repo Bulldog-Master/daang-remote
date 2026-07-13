@@ -1,6 +1,8 @@
 # ADR-0002: Control Plane / Data Plane Separation
 
-- Status: Proposed
+- Status: Accepted
+- Type: Operational
+- Expires: Does not expire
 - Date: 2026-07-13
 - Foundry generation: 1
 - Product: Daang Remote
@@ -44,7 +46,7 @@ independently selectable transports and cryptographic mechanisms.
 
 The Control Plane owns:
 
-- discovery (locating a peer without revealing its network position);
+- discovery (locating a peer while minimizing disclosure of its network position to unauthorized parties and infrastructure);
 - rendezvous (bringing two peers into a shared coordination context);
 - session negotiation (parameters, versions, transport selection);
 - authentication negotiation (which method, which credentials, which policy);
@@ -72,8 +74,7 @@ The Data Plane owns:
 
 Data Plane traffic is characterized as: **continuous, high-volume, extremely
 sensitive to added latency and jitter, protected by a session context that
-was already established on the Control Plane, and correlatable simply by
-its volume and timing regardless of what carries it.**
+was already established on the Control Plane, and likely to remain correlatable to at least some network observers through volume and timing unless later mechanism-selection work demonstrates and measures otherwise.**
 
 ### Separation invariants
 
@@ -108,6 +109,8 @@ Axes:
 - **cMixx** — plausible measurable value from cMixx (yes / conditional / no)
 - **xxDK** — plausible measurable value from xxDK (yes / conditional / no)
 - **ALT** — whether a differently optimized transport is likely preferable
+
+The responsibility matrix represents the author's current architectural assessment, not measured operational evidence. Any mechanism-selection ADR that relies on a value in this matrix must justify or revise that value with product evidence at selection time.
 
 ### Control Plane
 
@@ -189,17 +192,14 @@ evaluation against the axes above. No mechanism is chosen here.
   hybrid PQ key exchange, Noise-framework channels, WireGuard-style
   tunnels) established under a session context authenticated on the
   Control Plane.
+
+The examples above are illustrative candidates only. This ADR does not claim that QUIC, TLS 1.3, Noise, WireGuard, or a 'WireGuard-style' tunnel is post-quantum-safe or suitable for Daang Remote as currently deployed. A later Security and Cryptography ADR must verify the exact protocol, implementation, key exchange, credential model, downgrade resistance, replay protection, cryptographic agility, and post-quantum properties before selection.
 - **Fit for Data Plane.** High. Directly targets the latency, jitter,
   loss-recovery, and bandwidth profile of interactive remote access; can
   carry a hybrid post-quantum handshake today; keeps cryptographic
   agility by allowing the primitive suite to be swapped without changing
   the Control Plane.
-- **Metadata cost.** Traffic-analysis-visible: an observer at either
-  endpoint's network sees the existence, direction, and volume of a
-  continuous session. This is an **unavoidable linkability** of
-  interactive remote access, must be disclosed as such per the charter,
-  and cannot be honestly hidden by tunneling the same traffic through a
-  mix at Daang Remote's expected scale.
+- **Metadata cost.** Under a conventional direct or relayed optimized transport, observers with visibility at an endpoint network, relay, or other relevant network position may observe the existence, timing, direction, and volume of a continuous session. This is expected residual linkability, not measured evidence and not a declaration that every possible Data Plane design has identical exposure. A later mechanism-selection ADR must identify the relevant observers, available mitigations, residual linkage, and supporting evidence. Daang Remote must not assume that routing interactive traffic through a mix automatically removes this exposure at the product's expected scale.
 - **Fit for Control Plane.** Not selected; a separately optimized
   encrypted transport does not by itself provide the metadata protection
   the Control Plane requires.
