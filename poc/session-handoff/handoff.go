@@ -299,17 +299,11 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 	return a, nil
 }
 
-// SessionKey returns the per-session key for tests. It is not part of the
-// production contract; production code would never expose this.
-func (i *Issuer) SessionKey(sessionID string) []byte {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	sk, ok := i.sessionKey[sessionID]
-	if !ok {
-		return nil
-	}
-	return append([]byte(nil), sk...)
-}
+// NOTE: no accessor is provided for the per-session key. Tests obtain
+// session-local material via StartSession's return value (see
+// export_test.go for the test-only helper used by partial-compromise
+// tests). Publishing a production-compilable accessor for session-local
+// material would weaken the boundary the PoC is designed to test.
 
 func hexMac(key, msg []byte) string {
 	m := hmac.New(sha256.New, key)
@@ -452,26 +446,24 @@ func (v *Validator) verifyLocked(a *Artifact) (*sessionState, error) {
 // Use asks the Data Plane to exercise `cap` under the authority of `a`.
 // It runs every check, consumes the nonce, enforces revocation, and
 // enforces that the artifact and installed session both grant `cap`.
-// It returns nil when authorization succeeds, and records a
-// capability_denied event otherwise.
+//
+// Event semantics (ADR-0004 bounded return-flow contract):
+// capability_denied is emitted ONLY when the artifact has passed every
+// authenticity, integrity, binding, freshness, replay and session check,
+// but the requested capability is absent from the artifact, absent from
+// the installed session grant set, or has been revoked. Validation
+// failures (bad signature, wrong recipient, unknown/invalidated session,
+// expired or future-dated artifact, replayed nonce, malformed artifact)
+// fail closed and do NOT emit a return-flow event: the event stream must
+// not become a probing oracle for malformed or hostile inputs.
 func (v *Validator) Use(a *Artifact, cap Capability) error {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	st, err := v.verifyLocked(a)
 	if err != nil {
-		if a != nil {
-			v.events = append(v.events, Event{
-				Type: EventCapabilityDenied, SessionID: a.SessionID,
-				Capability: cap, At: v.clock(),
-			})
-		}
 		return err
 	}
 	if st.seenNonce[a.Nonce] {
-		v.events = append(v.events, Event{
-			Type: EventCapabilityDenied, SessionID: a.SessionID,
-			Capability: cap, At: v.clock(),
-		})
 		return errors.New("handoff: replay")
 	}
 	artifactGrants := false

@@ -380,3 +380,91 @@ The evidence supports these next steps, in order:
 
 This PoC does not claim production readiness, security certification,
 unlinkability, complete compromise containment, or post-quantum security.
+
+## 25. Gate-review corrections
+
+The four independent gate reports on PR #5 against frozen commit
+`f3a58b0f` produced a consolidated set of corrections. Two required code
+changes (behavior is the evidence at implementation-review stage); the
+rest are documentary clarifications that add no new claims.
+
+### 25.1 Code corrections
+
+- **A1 — Issuer.SessionKey removed from production surface.** The
+  exported accessor `Issuer.SessionKey(sessionID)` has been deleted from
+  `handoff.go`. Documenting it as "test-only" while leaving it linkable
+  from production code weakens the very boundary the PoC is designed to
+  test. Partial-compromise tests (#25–#30) obtain Session A's local key
+  from `StartSession`'s return value, exactly as legitimate installers
+  would. A test-only helper `testSessionKey` lives in `export_test.go`
+  in the same package; it is compiled into the test binary only and is
+  unreachable from any production consumer of the package.
+- **P2 — capability_denied event narrowed to true capability denials.**
+  `Validator.Use` previously emitted `capability_denied` for every
+  failure path, including invalid signature, wrong recipient, unknown or
+  invalidated session, expired or future-dated artifact, replayed
+  nonce, and nil artifact. Under ADR-0004's bounded return-flow
+  contract, those are validation failures, not capability denials —
+  emitting the same lifecycle event for malformed or hostile artifacts
+  turned the event stream into a probing oracle. `Use` now emits
+  `capability_denied` only after the artifact has passed every
+  authenticity, integrity, binding, freshness, replay and session check
+  but the requested capability is absent from the artifact, absent from
+  the installed session grant set, or has been revoked. Validation
+  failures fail closed with no return-flow event. Two new tests enforce
+  this: `TestUseValidationFailuresEmitNoCapabilityDenied` (#31,
+  negative) and `TestUseGenuineCapabilityDenialEmitsEvent` (#32,
+  positive).
+
+### 25.2 Evidence-only clarifications
+
+- **S1.** This PoC treats possession of the raw session-local key as
+  authorization proof for revoke, invalidate and end-session operations.
+  There is no challenge-response, no session-side counter, and no
+  freshness protocol for administrative operations. A production design
+  would replace raw-key possession with a bounded proof-of-possession
+  protocol.
+- **S2.** The construction assumes that exposure of a session-derived
+  HMAC subkey does not reveal the global issuer key. This is the
+  standard PRF assumption on HMAC-SHA256 and is required for the
+  partial-compromise results in §16; it is recorded as an assumption,
+  not proved by the PoC.
+- **S3.** Issued-at handling is intentionally asymmetric: only
+  excessive future skew (>5s ahead of the validator clock) is rejected.
+  No independent lower-bound age check exists beyond the signed
+  `ExpiresAt`. A production design would add a bounded past-age cap.
+- **A2.** Out-of-band delivery of the session-local key from Issuer to
+  Validator is assumed and not modelled. A separate bounded PoC would
+  model an actual transport (for example xxDK) and its failure modes.
+- **P1.** Return-flow events (`Event.At`) use precise wall-clock
+  timestamps from `time.Now`. This PoC does not model timing-correlation
+  defenses; a production Data Plane would coarsen or bucket event
+  timestamps before persistence or emission.
+- **Q1.** The red-phase evidence in §10 is documentary: it records the
+  failing outputs against the compile-only stub that existed before the
+  implementation was committed. The green-phase reproduction in §11 and
+  the fuzz/race evidence in §12–§13 are executable and reproducible
+  from the current tree with the commands in §9.
+- **Q2.** The fuzz target `FuzzVerifyMalformed` mutates exactly three
+  fields — `Signature`, `Nonce`, and `RecipientBind`. Targeted tests,
+  not fuzzing, cover mutation of `Recipient` (#4), `SessionID` (#5,
+  #20), `Purpose` (#2, #6), `Capabilities` (#10–#16), and `Version`
+  (rejected structurally in `verifyLocked`).
+- **Q3.** Concurrent partial-compromise coverage is future scope. The
+  race-detector run in §12 exercises concurrent legitimate use across
+  many sessions; it does not drive an adversary concurrently with a
+  legitimate holder of Session B. A follow-up PoC would add this.
+
+### 25.3 Re-run after corrections
+
+The corrections were verified locally against Go 1.25.7:
+
+```
+go test ./...        # PASS
+go test -race ./...  # PASS (no data race reported)
+go test -run='^$' -fuzz=FuzzVerifyMalformed -fuzztime=2s ./...  # PASS
+```
+
+No ADR-0002 / ADR-0003 / ADR-0004 changes were made. Foundry was not
+modified. No production mechanism was selected. Founder approval on
+PR #5 remains unchecked.

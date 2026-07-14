@@ -519,3 +519,99 @@ func FuzzVerifyMalformed(f *testing.F) {
 		}
 	})
 }
+
+// #31 Return-flow event stream is not a probing oracle.
+//
+// Bounded-return-flow contract (ADR-0004): capability_denied is emitted
+// only after the artifact has passed every authenticity, integrity,
+// binding, freshness, replay and session check but is not authorised for
+// the requested capability. Malformed, forged, replayed, wrongly
+// addressed, cross-session, expired or session-unknown artifacts must
+// fail closed WITHOUT producing a capability_denied event, so the event
+// stream cannot be used as a probing oracle for hostile inputs.
+func TestUseValidationFailuresEmitNoCapabilityDenied(t *testing.T) {
+	iss := NewIssuer()
+	v := NewValidator(dpRole)
+	sidA, skA := iss.StartSession()
+	sidB, skB := iss.StartSession()
+	v.InstallSession(sidA, skA, dpRole, []Capability{CapViewScreen})
+	v.InstallSession(sidB, skB, dpRole, []Capability{CapViewScreen})
+
+	base := issueOK(t, iss, sidA, []Capability{CapViewScreen})
+
+	// 1. Tampered signature.
+	tampered := *base
+	tampered.Signature = "deadbeef"
+	_ = v.Use(&tampered, CapViewScreen)
+
+	// 2. Wrong recipient.
+	wrongRcpt := *base
+	wrongRcpt.Recipient = "some-other-data-plane"
+	_ = v.Use(&wrongRcpt, CapViewScreen)
+
+	// 3. Cross-session (artifact minted for A, replayed against B's id).
+	crossSess := *base
+	crossSess.SessionID = sidB
+	_ = v.Use(&crossSess, CapViewScreen)
+
+	// 4. Unknown session id.
+	unknown := *base
+	unknown.SessionID = "no-such-session"
+	_ = v.Use(&unknown, CapViewScreen)
+
+	// 5. Malformed nonce/binding (rebuild from garbage).
+	malformed := *base
+	malformed.Nonce = ""
+	malformed.RecipientBind = ""
+	_ = v.Use(&malformed, CapViewScreen)
+
+	// 6. Expired artifact.
+	expired, err := iss.Issue(sidA, dpRole, "interactive-remote",
+		[]Capability{CapViewScreen}, time.Nanosecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(2 * time.Millisecond)
+	_ = v.Use(expired, CapViewScreen)
+
+	// 7. Replay of a valid Use.
+	valid := issueOK(t, iss, sidA, []Capability{CapViewScreen})
+	if err := v.Use(valid, CapViewScreen); err != nil {
+		t.Fatalf("first use must succeed: %v", err)
+	}
+	if err := v.Use(valid, CapViewScreen); err == nil {
+		t.Fatal("replay must fail")
+	}
+
+	// 8. Nil artifact.
+	_ = v.Use(nil, CapViewScreen)
+
+	for _, e := range v.Events() {
+		if e.Type == EventCapabilityDenied {
+			t.Fatalf("validation failure produced capability_denied event: %+v", e)
+		}
+	}
+}
+
+// #32 Genuine capability denial (authenticated artifact requests an
+// ungranted capability) still emits exactly one capability_denied event.
+// This is the positive counterpart to #31 — the event MUST fire when the
+// artifact is fully valid but the requested capability is not authorised.
+func TestUseGenuineCapabilityDenialEmitsEvent(t *testing.T) {
+	iss, v, sid, _ := setupSession(t, []Capability{CapViewScreen})
+	// Artifact is fully valid, but requests a capability the installed
+	// session was never granted.
+	a := issueOK(t, iss, sid, []Capability{CapTransferFile})
+	if err := v.Use(a, CapTransferFile); err == nil {
+		t.Fatal("expected capability denial")
+	}
+	got := 0
+	for _, e := range v.Events() {
+		if e.Type == EventCapabilityDenied {
+			got++
+		}
+	}
+	if got != 1 {
+		t.Fatalf("expected exactly 1 capability_denied event, got %d", got)
+	}
+}
