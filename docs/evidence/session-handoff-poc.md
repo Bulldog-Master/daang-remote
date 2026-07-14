@@ -94,6 +94,12 @@ final signature or MAC scheme, final key hierarchy, final key lifecycle,
 final session-binding protocol, final identity system, final transport
 protocol, or final PQ mechanism.
 
+**Trust-level modelling requirement.** The experimental construction must
+model at least two distinct trust levels: global issuer authority must
+remain separate from session-local authorization or validation material.
+The partial-compromise tests in §16 depend on that separation. This models
+the property under test and does not select a production key hierarchy.
+
 ## 7. Assumptions
 
 - Out-of-band delivery of the per-session key from Issuer to Validator is
@@ -267,6 +273,12 @@ Under the experimental construction and the modelled adversary:
   key lifecycle, session-binding protocol, identity system, or PQ
   mechanism.
 - Anti-forensic properties of the exposed session's own data.
+
+**Single-process, in-memory scope.** The PoC uses single-process, in-memory
+replay, revocation and invalidation state. It does not demonstrate
+distributed replay detection, revocation propagation, consistency across
+validators, recovery after validator restart, or resistance to
+partition-related races.
 
 ## 16. Partial-compromise scenario and results
 
