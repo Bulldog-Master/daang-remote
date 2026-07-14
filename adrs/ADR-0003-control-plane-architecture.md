@@ -1,6 +1,6 @@
 # ADR-0003: Control Plane architecture
 
-- Status: Proposed
+- Status: Accepted
 - Type: Operational
 - Expires: Does not expire
 - Date: 2026-07-14
@@ -56,9 +56,14 @@ Adopt a Control Plane defined by:
 7. An explicit deferred-decision list enumerating every mechanism choice that
    this ADR does not make and that later ADRs must make with product evidence.
 
-This ADR makes ADR-0002 separation invariants 2 (no cross-plane correlatable
-identity) and 3 (bounded, single-purpose, short-lived handoff) concrete at the
-architectural level, without collapsing them into any specific mechanism.
+This ADR makes ADR-0002 separation invariant 2 concrete by prohibiting
+cross-plane re-linking through identity-bearing or correlatable material.
+ADR-0002 separation invariant 3 separately requires every shared component,
+including identity, key material, relay pools, and session-binding state, to be
+analyzed as a correlation surface in the ADR that introduces the sharing.
+ADR-0003 adds its own handoff requirements: the handoff must be minimized,
+single-session, single-purpose, short-lived, scoped, and resistant to replay,
+without selecting a mechanism.
 
 ## Responsibility model
 
@@ -98,14 +103,17 @@ metadata handled, identifiers handled, and what is deliberately deferred.
 - **Outputs.** A shared ephemeral rendezvous context suitable for negotiation.
 - **Required properties.** Rendezvous coordinates must not require or expose
   long-lived identifiers; the rendezvous context must be single-use.
-- **Local trust assumptions.** Rendezvous infrastructure is trusted for
-  liveness and coordination but is not trusted with session content or with
-  linking rendezvous events to identity.
+- **Local trust assumptions.** Rendezvous infrastructure may be relied upon
+  for liveness and coordination, but must be treated as potentially capable of
+  observing, retaining, or correlating rendezvous events. The architecture
+  must minimize what it can observe and must not rely on operator promises to
+  prevent linkage.
 - **Metadata handled.** Timing of rendezvous attempts and any coordinates
   required to complete them.
 - **Identifiers handled.** Only ephemeral rendezvous coordinates.
 - **Deferred.** Coordinate format, discoverability model, anti-abuse
-  mechanisms, relay selection.
+  mechanisms, relay selection; observer model, retention constraints,
+  cross-session correlation controls.
 
 ### 3. Session negotiation
 
@@ -118,7 +126,9 @@ metadata handled, identifiers handled, and what is deliberately deferred.
   Data Plane.
 - **Required properties.** Negotiation must be bounded to a single session,
   must not embed long-lived identifiers in the resulting context, and must
-  fail closed if required properties cannot be established.
+  fail closed if required properties cannot be established. No authenticated
+  principal automatically receives session or Data Plane authority. Authority
+  exists only after separate authorization and capability negotiation.
 - **Local trust assumptions.** Participants are trusted only to the extent
   established by authentication; the negotiation channel is trusted for
   confidentiality and integrity as required properties (mechanism deferred).
@@ -138,7 +148,10 @@ metadata handled, identifiers handled, and what is deliberately deferred.
   usable outside the session.
 - **Required properties.** Mutual authentication where the session requires
   it; freshness; resistance to replay; no leakage of long-lived credential
-  material into session context.
+  material into session context. Authentication establishes claims and an
+  assurance level. It does not itself grant Data Plane authority.
+  Authorization is a separate decision that maps those authenticated claims to
+  a bounded, session-scoped capability.
 - **Local trust assumptions.** The authentication verifier is trusted to
   enforce the negotiated method; the credential source is trusted only for
   the authenticated party's claims.
@@ -178,8 +191,11 @@ metadata handled, identifiers handled, and what is deliberately deferred.
   identifiers.
 - **Required properties.** Relay coordination must not require the Control
   Plane to hold a stable mapping between users and long-lived relay
-  identities; selection must be reproducible under audit but must not create
-  a cross-session linkage store.
+  identities; selection may be reproducible under audit only where the audit
+  evidence is event-scoped, purpose-bounded, minimally retained, separated from
+  long-lived user identity, and reviewed for its own cross-session linkage
+  risk. Auditability must not create a durable user-to-relay or
+  session-to-session correlation store.
 - **Local trust assumptions.** Relay infrastructure is trusted for transport
   duties but is not trusted with session content or identity.
 - **Metadata handled.** Relay capability and eligibility information.
@@ -273,9 +289,14 @@ languages, or libraries are selected.
   purpose of authentication, identity exchange, and session-scoped authority
   derivation. It does not export session context back to those services in a
   form that would allow them to correlate sessions.
-- **Required properties.** Assurance level statable and verifiable;
-  revocation representable; cryptographic agility; least-privilege
-  information flow to and from the identity/key service.
+- **Required properties.** Assurance level must be statable and independently
+  verifiable where feasible; trust must be scoped per claim and assurance
+  level; requests and returned claims must be least-privilege; long-lived
+  private key material must not be exported unless a later ADR proves it
+  necessary and safe; compromise, revocation, and recovery behavior must be
+  explicit; cryptographic agility must be preserved; and the service must not
+  be treated as privacy-preserving merely because it is trusted for identity
+  assertions.
 - **Metadata surface.** Only claims required for authorization and
   capability negotiation.
 
@@ -284,19 +305,24 @@ languages, or libraries are selected.
 - **Contract.** The Control Plane treats transport as a replaceable
   substrate. Any transport must be able to carry Control Plane interfaces
   while preserving the required properties above.
-- **Required properties.** Transport replaceability; the Control Plane's
-  correctness must not depend on properties unique to a single transport;
-  the Control Plane must not embed transport-specific identifiers in
-  session context.
+- **Required properties.** Transport replaceability; the Control Plane may
+  depend only on explicitly declared transport-contract properties required by
+  the interface, such as confidentiality, integrity, peer authentication,
+  delivery, ordering, freshness, or availability behavior. It must not depend
+  on undocumented, vendor-specific, or accidental behavior of a particular
+  transport; the Control Plane must not embed transport-specific identifiers
+  in session context.
 - **Metadata surface.** Whatever the deferred transport unavoidably exposes;
   such exposure must be documented, not silently accepted, by any later
   mechanism-selection ADR.
 
 ## Plane-crossing handoff requirements
 
-This section makes ADR-0002 invariants 2 (no cross-plane correlatable
-identity) and 3 (bounded, single-purpose, short-lived handoff) concrete
-without selecting a mechanism.
+This section makes ADR-0002 invariant 2 concrete at the handoff seam and
+applies invariant 3 by treating every shared session artifact, key reference,
+relay reference, and binding input as a correlation surface. The minimized,
+single-session, single-purpose, short-lived handoff requirements below are new
+ADR-0003 requirements.
 
 ### Minimum handoff payload
 
@@ -305,16 +331,42 @@ required for the Data Plane to operate exactly one session for exactly one
 purpose for a bounded lifetime. The strictly necessary fields, expressed as
 properties rather than formats, are:
 
-- A session-scoped authorization artifact (a handoff token or session
-  capability) proving that the session was negotiated and that the bearer
-  may operate it.
+- A session-scoped authorization artifact proving that the session was
+  negotiated and granting only the bounded authority required to operate it.
+  Possession alone must not automatically create transferable bearer authority;
+  the artifact must support verifiable binding to the intended session,
+  negotiated purpose, capability set, and intended Data Plane recipient or
+  endpoint role.
 - The negotiated session purpose, bounded and enumerable.
 - The negotiated capability set for this session.
 - A bounded session lifetime.
-- A single-use nonce or equivalent property sufficient to prevent replay.
+- Freshness and replay-resistance inputs sufficient for the later selected
+  mechanism to detect and reject replay. A nonce may be one input, but this ADR
+  does not claim that a nonce alone is sufficient.
 - The minimum coordination inputs the Data Plane requires to actually run
   the session (their content is deferred to the Data Plane ADR and to
   transport-selection ADRs, but must remain session-scoped).
+- An opaque, ephemeral, session-scoped target or connection capability where
+  required for the Data Plane to reach the authorized session endpoint. It must
+  not identify a durable user, account, device, route, or relay; must not be
+  reusable across sessions; must reveal only what is required to establish
+  this session; and must not be resolvable by the Data Plane into long-lived
+  Control Plane identity.
+
+Every permitted handoff field is metadata, including:
+
+- session purpose;
+- capability set;
+- lifetime;
+- freshness inputs;
+- target or connection capability shape;
+- relay or coordination inputs;
+- revocation state;
+- and return-flow events.
+
+Later mechanism-selection ADRs must evaluate whether these fields require
+minimization, coarsening, normalization, padding, batching, omission, or
+explicit justification. This ADR does not mandate a mitigation.
 
 ### Prohibited on the handoff
 
@@ -323,8 +375,10 @@ plane seam under any circumstance:
 
 - account identifiers;
 - user identifiers;
-- device identifiers;
-- long-lived route or relay identifiers;
+- long-lived or durable device identifiers;
+- long-lived route or relay identifiers, except opaque ephemeral
+  session-scoped target or connection capabilities satisfying the requirements
+  above;
 - authentication credentials or long-lived credential material;
 - persistent identity claims beyond those required for this session's
   authority;
@@ -340,12 +394,22 @@ The handoff token or session capability, regardless of mechanism, must:
 - bind to exactly one session;
 - bind to exactly one negotiated purpose;
 - carry a bounded lifetime after which it is inert;
-- be single-use in the sense that replay is prevented as a required property;
+- provide replay resistance as a required property through validated
+  freshness, scoped binding, state, or equivalent mechanism-specific controls;
+  this ADR does not declare any one input sufficient;
 - be revocable as a required property, whether by expiry, explicit
   revocation, or session-context invalidation;
 - carry no long-lived identifier and no derivation that yields one;
-- be indistinguishable, to the Data Plane and to observers, from any other
-  valid handoff of the same shape.
+- contain no stable, user-specific, account-specific, device-specific, or
+  cross-session distinguishing feature beyond session-scoped attributes that
+  are strictly necessary for the negotiated purpose, capability set, lifetime,
+  and connection establishment;
+- be verifiably bound to the intended Data Plane recipient, instance, endpoint
+  role, or equivalent scoped recipient property;
+- support proof-of-possession or an equivalent non-transferability property
+  where later threat analysis requires it;
+- not become usable merely because it was copied, logged, intercepted, or
+  delivered to the wrong recipient.
 
 ### Bounding to one session and one purpose
 
@@ -361,21 +425,45 @@ negotiation, not a refresh of the same artifact.
 
 Replay prevention is a required property of the artifact and of the
 Control-Plane-to-Data-Plane interface. The mechanism is deferred; the
-property is not. Revocation must be representable both by artifact expiry and
-by an out-of-band invalidation that the Data Plane can honor; the specific
-revocation channel is deferred.
+property is not.
+
+Expiry, explicit revocation, and session-state invalidation are distinct
+events:
+
+- expiry is scheduled termination at the end of the bounded lifetime;
+- explicit revocation is an active withdrawal of authority before expiry;
+- session-state invalidation occurs when negotiated state changes or becomes
+  invalid.
+
+Later mechanism-selection ADRs must define propagation, freshness,
+acknowledgement, race handling, unavailable-status behavior, and fail-closed
+semantics for explicit revocation and invalidation. The specific channel and
+mechanism remain deferred.
 
 ### Preventing possession from enabling correlation
 
-Possession of the handoff artifact must not allow the Data Plane, its
-operator, or a network observer to correlate the session back to
-Control-Plane identity. This is required in two ways:
+The handoff artifact must contain no direct or derivable stable identity and
+must not introduce additional avoidable linkage between Data Plane activity and
+Control Plane identity. This ADR does not claim universal non-correlation for
+the Data Plane, its operator, or network observers before an observer model and
+mechanism are selected.
 
 - the artifact carries no long-lived identifier and no derivation that yields
   one;
 - the artifact's structure and content, on inspection, do not distinguish one
   user, account, or device from another beyond what the session's purpose
   unavoidably requires.
+
+Later mechanism-selection ADRs must identify:
+
+- relevant observer positions;
+- auxiliary information available to each observer;
+- timing and traffic-analysis channels;
+- infrastructure-collusion assumptions;
+- identity-service and relay visibility;
+- cross-session and cross-device correlation risks;
+- mitigations;
+- and residual correlation that remains after mitigation.
 
 Any unavoidable residual linkability introduced by the eventual mechanism
 must be explicitly disclosed by the later mechanism-selection ADR and
@@ -393,6 +481,9 @@ exhausted, revocation acknowledged). The return flow must not:
 - carry session content or content-derived material;
 - promote transient session state into long-lived Control-Plane records.
 
+Session-ended, capability-exhausted, revocation-acknowledged, and similar
+return-flow events are metadata and may create timing or behavioral linkage.
+
 ## Bidirectional trust assumptions
 
 ### What the Data Plane trusts the Control Plane to have already done
@@ -405,8 +496,19 @@ exhausted, revocation acknowledged). The return flow must not:
 - performed relay or route selection where applicable and conveyed only the
   minimum coordination inputs needed.
 
-The Data Plane does not re-perform these responsibilities; it enforces the
-bounded context it was handed.
+The Data Plane does not repeat user authentication, but it must independently
+validate that the handoff:
+
+- originated from an authorized Control Plane source;
+- has valid integrity and provenance;
+- is intended for this Data Plane recipient or endpoint role;
+- is bound to this session, purpose, and capability set;
+- is fresh and unexpired;
+- is not revoked or invalidated under the later selected mechanism;
+- and does not grant transferable authority solely through possession.
+
+The Data Plane does not re-perform the Control Plane's responsibilities; it
+enforces the bounded context it was handed.
 
 ### What the Control Plane trusts the Data Plane to do or not do
 
@@ -419,8 +521,11 @@ The Control Plane trusts the Data Plane to:
 - avoid promoting Data-Plane metadata into long-lived identity or account
   state.
 
-These are trust assumptions to be verified by later Data-Plane ADRs and by
-product evidence; this ADR does not claim they are already enforced.
+These are explicit architectural trust assumptions and must later be converted
+into enforceable and testable properties. They are not assurances that the Data
+Plane is inherently trusted or already compliant. They are to be verified by
+later Data-Plane ADRs and by product evidence; this ADR does not claim they
+are already enforced.
 
 ## Local trust-boundary analysis
 
@@ -478,8 +583,8 @@ consolidation is deferred until both Control Plane and Data Plane ADRs exist.
 
 ### Control Plane ↔ future identity/key service boundary
 
-- **Trusted party:** the identity/key service for claims and key material at
-  the stated assurance level.
+- **Trusted party:** the identity/key service, with trust scoped only to
+  particular claims or key operations at a stated assurance level.
 - **Untrusted party:** the identity/key service with respect to session
   content and session-derived state.
 - **Data crossing:** authentication requests, claims, key material references
@@ -492,6 +597,9 @@ consolidation is deferred until both Control Plane and Data Plane ADRs exist.
 - **Required protections:** assurance statement and verification;
   cryptographic agility; least-privilege information flow.
 - **Unknown:** the eventual identity system; deferred.
+
+The service may observe authentication events and must be analyzed as a
+potential correlation point. Privacy must not depend only on operator promises.
 
 ## Required architectural properties
 
@@ -614,9 +722,24 @@ This ADR is structurally verifiable by confirming that:
 - no implementation mechanism is selected;
 - all architectural assignments are labeled as design judgments or
   requirements, not proven facts;
-- deferred decisions are explicit and exhaustive against the bounded
-  question;
+- deferred decisions are sufficiently explicit for the current bounded
+  question; newly discovered decisions must be added through later ADRs rather
+  than being assumed covered here;
 - rollback is achievable through a superseding ADR without code changes.
+
+Structural verification accepts ADR-0003 as an architectural baseline only.
+It does not prove:
+
+- that the handoff is operationally minimal;
+- that the eight responsibilities are optimally grouped;
+- that the trust assumptions are implementable;
+- that the privacy and security properties are achievable;
+- that latency, availability, recovery, abuse prevention, and usability remain
+  acceptable;
+- or that the architecture is superior to later alternatives.
+
+Those claims require later ADRs, implementation, threat modeling, measurement,
+and product evidence.
 
 ## Rollback
 
