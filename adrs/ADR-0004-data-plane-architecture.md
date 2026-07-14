@@ -442,6 +442,14 @@ The Data Plane must, as required properties:
 - Prohibit any capability escalation from Data Plane content or metadata,
   including from content received from the remote endpoint or from
   local input.
+- Capabilities must be enforced independently by capability type.
+- Granting one capability must not implicitly grant any other capability.
+- At minimum, screen viewing, input injection, clipboard synchronization,
+  audio, file transfer, and future video capabilities must be independently
+  grantable, independently enforceable, and independently revocable during an
+  active session.
+- The Data Plane must fail closed when a requested capability has not been
+  explicitly granted.
 
 These are required behaviors, not implementation guidance. Mechanism
 selection is deferred.
