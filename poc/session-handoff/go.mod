@@ -1,3 +1,3 @@
 module github.com/Bulldog-Master/daang-remote/poc/session-handoff
 
-go 1.25
+go 1.22
