@@ -1,6 +1,6 @@
 # ADR-0004: Data Plane architecture
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Type:** Operational
 - **Expires:** Does not expire
 - **Date:** 2026-07-14
@@ -118,7 +118,9 @@ architectural obligations, not as design suggestions:
   Plane trusts the Data Plane only to enforce capabilities and return
   bounded signals honestly. Neither trusts network intermediaries,
   transport providers, relays, or endpoint operating systems beyond what
-  is explicitly analyzed at each local trust boundary.
+  is explicitly analyzed at each local trust boundary. These trust
+  assumptions define contractual expectations between components; they
+  are not evidence that any component is trustworthy in implementation.
 - **No promotion of transient state.** Transient Data Plane metadata (peer
   addresses, capability identifiers, ephemeral session identifiers, event
   timings, per-session counters) must not be promoted into long-lived
@@ -562,6 +564,13 @@ Required privacy properties and deferred evidence needs are stated; the
 mechanism-selection ADR that eventually chooses these must justify them
 against measured observer models.
 
+Residual correlation is treated as a measurable property, not a binary
+condition. Later mechanism-selection ADRs must characterize, for the
+chosen mechanism: the observer model in effect, the residual
+correlation surface, its expected magnitude, and justification for any
+unavoidable exposure. Acknowledging that residual correlation exists
+does not satisfy this requirement.
+
 ## Local trust-boundary analysis
 
 Only boundaries directly touched by the Data Plane. This is not the
@@ -681,6 +690,11 @@ endpoint information, relay changes, reconnect behavior, capability use,
 and lifecycle events. This ADR does not claim any observer sees
 everything, and does not claim any observer sees nothing.
 
+Observer categories define what an observer may be positioned to
+observe, not what every observer necessarily learns in every
+implementation. Actual observability is mechanism-dependent and must
+be characterized by later mechanism-selection ADRs.
+
 - **Local network observer.** May observe existence, timing, duration,
   volume, and possibly endpoint reachability from the initiator side.
 - **Remote network observer.** Symmetric on the remote side.
@@ -703,6 +717,13 @@ Universal observability and universal non-correlation are both rejected
 as claims. Later mechanism-selection ADRs must define and measure the
 actual observer model, chosen mitigations, and residual exposure.
 
+Privacy statements in this ADR are provisional architectural requirements
+interpreted against the observer categories defined in this section. Where a
+section does not name a specific observer, it must not be read as claiming the
+same effect against every observer. Later mechanism-selection ADRs must
+explicitly identify the relevant observer or observers for each claimed
+privacy property.
+
 ## Required security and privacy properties
 
 Stated as requirements, not achievements. Mechanism selection is
@@ -717,6 +738,10 @@ deferred; no cryptographic primitive is chosen.
 - Replay resistance across all session artifacts and events.
 - Revocation handling.
 - Session invalidation handling.
+- Independence of security properties: replay resistance, revocation,
+  recipient binding, and proof-of-possession (where later threat
+  analysis requires it) are independent required properties.
+  Satisfying one must not be interpreted as satisfying another.
 - Downgrade resistance across negotiated properties.
 - Cryptographic agility: no assumption that any primitive is permanent.
 - Evidence-supported post-quantum posture: any post-quantum claim must
@@ -725,6 +750,9 @@ deferred; no cryptographic primitive is chosen.
   session.
 - Bounded authority; least privilege.
 - Memory and secret minimization.
+- Compromise containment: a compromise of one session must not
+  automatically extend authority to unrelated sessions. Later
+  mechanism-selection ADRs must demonstrate this property.
 - No unnecessary persistence of session material.
 - No custom cryptography without separate justification in a dedicated
   ADR.
@@ -735,10 +763,18 @@ long-lived identity or account state; and explicit acknowledgement that
 some metadata (session existence, coarse timing, coarse volume) is
 observable and requires later mitigation analysis.
 
+Metadata required for session correctness is not thereby considered
+justified for retention, propagation, or correlation. Later ADRs must
+independently justify every metadata element beyond immediate
+operational necessity; the existence of metadata is not itself a
+justification.
+
 ## Performance requirements
 
-All numeric thresholds below are labeled as architectural estimates,
-provisional requirements, or future measurement targets. No unlabeled
+All items below are architectural estimates, provisional requirements,
+or future measurement targets. They describe properties the architecture
+must support or that later mechanism-selection ADRs must demonstrate;
+they are not claims of measured or achieved performance. No unlabeled
 numeric threshold is asserted.
 
 - **Interactive latency.** Provisional requirement: perceived
@@ -935,20 +971,32 @@ Newly discovered decisions must be added through later ADRs.
 
 ## Verification
 
-Structural verification of this ADR requires that:
+Structural verification of this ADR is sufficient for the bounded
+question ADR-0004 answers; it does not claim exhaustive coverage of
+Data Plane concerns. Verification requires that:
 
-- Every named Data Plane responsibility is covered with property-level
-  content.
+- Every named Data Plane responsibility expresses its required
+  properties (purpose, authorization, confidentiality, integrity,
+  metadata, correlation risks, local trust assumptions, failure
+  behavior, and deliberate deferrals), not merely names the
+  responsibility.
 - ADR-0003 obligations are carried as conformance requirements, not
   softened.
+- Every obligation inherited from ADR-0003 is either satisfied by this
+  ADR, explicitly deferred with justification, or documented as an
+  unresolved conflict routed to proof-of-concept.
 - No seam contract from ADR-0003 is silently weakened.
 - Handoff validation duties are explicit and independent.
-- Capability enforcement is defined as required properties, including
-  deny-by-default and prohibition of escalation from Data Plane
-  content or metadata.
-- Return-flow metadata is analyzed for lifecycle needs, timing,
-  batching, normalization, omission, residual correlation, and
-  cross-session fingerprinting.
+- Capability enforcement expresses required behavioral properties
+  (deny-by-default, per-capability independence, mid-session
+  revocability, fail-closed on ungranted capabilities, and
+  prohibition of escalation from Data Plane content or metadata),
+  not merely a statement that capabilities are enforced.
+- Return-flow metadata analysis expresses, for each lifecycle event
+  category, the properties required by the return-flow framework
+  (lifecycle need, minimum information, timing granularity,
+  batching/normalization/omission acceptability, residual
+  correlation, and cross-session fingerprinting).
 - Cross-session event-pattern fingerprinting is explicitly addressed.
 - Local trust boundaries touched by the Data Plane are documented.
 - Observer categories are explicit and neither claim universal
