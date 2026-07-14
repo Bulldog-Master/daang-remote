@@ -468,3 +468,67 @@ go test -run='^$' -fuzz=FuzzVerifyMalformed -fuzztime=2s ./...  # PASS
 No ADR-0002 / ADR-0003 / ADR-0004 changes were made. Foundry was not
 modified. No production mechanism was selected. Founder approval on
 PR #5 remains unchecked.
+
+## 26. Go toolchain floor correction
+
+This section is a post-merge accuracy correction to the module
+directive originally shipped with the PoC. It changes evidence and
+one build-time directive only. No PoC code, tests, ADRs
+(ADR-0002 / ADR-0003 / ADR-0004), or Foundry material are modified,
+and the historical record of merged PR #5 is preserved.
+
+### 26.1 What is being corrected
+
+- The PoC was originally generated with a Go 1.25 module directive
+  (`go 1.25` in `poc/session-handoff/go.mod`).
+- Review of the PoC source found no Go 1.25-specific language,
+  standard-library, or toolchain feature in use.
+- The module floor is therefore being lowered to `go 1.22`, which is
+  the lowest Go version for which direct execution evidence currently
+  exists (see 26.2). This does not select the permanent Daang Remote
+  product toolchain and does not establish xxDK compatibility.
+
+### 26.2 Evidence provenance (Go 1.22.2 execution)
+
+- An independent external reviewer (not this Lovable session, and not
+  the drafting agent) temporarily lowered the `go` directive to
+  `1.22` and executed the otherwise unchanged PoC source with
+  Go 1.22.2.
+- That reviewer reported the standard test suite passing and the race
+  detector reporting no data races under Go 1.22.2.
+- The reviewer did NOT independently verify a meaningful active fuzz
+  campaign under Go 1.22.2. The earlier §25.3 fuzz line
+  (`-fuzztime=2s`) is a smoke check under Go 1.25.7 only and is not
+  extended to Go 1.22.2 by this correction.
+- This Lovable environment did not rerun `go test`, `go test -race`,
+  or `go test -fuzz` against the repository. All Go 1.22.2 results in
+  this section are attributed to the independent reviewer that ran
+  them.
+
+### 26.3 xxDK v4.8.4 compatibility (bounded)
+
+- xxDK v4.8.4's published build instructions reference Go 1.17.X and
+  GCC/cgo. Directly retrieved from
+  `https://gitlab.com/elixxir/client/-/raw/v4.8.4/go.mod` (tag
+  `v4.8.4` of `gitlab.com/elixxir/client/v4`), the exact directives
+  present in that `go.mod` are:
+
+  ```
+  module gitlab.com/elixxir/client/v4
+
+  go 1.21
+  ```
+
+  No `toolchain` directive is present in that file.
+- xxDK is NOT added as a dependency of the PoC by this change. The
+  module directive alignment here (`go 1.22` ≥ xxDK's `go 1.21`) is
+  informational only and does not constitute an xxDK integration
+  claim.
+
+### 26.4 Out of scope for this correction
+
+- Distributed replay detection across data-plane nodes.
+- Revocation propagation across data-plane nodes.
+- Selection of the permanent product toolchain floor.
+- Any change to authentication, capability semantics, session-key
+  handling, or the four-gate record of the merged PR #5.
