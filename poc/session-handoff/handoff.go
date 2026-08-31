@@ -86,17 +86,17 @@ type Event struct {
 // internal correlation key, reusable login credential, password,
 // authentication secret, or production key material.
 type Artifact struct {
-	Version       int          `json:"version"`
-	SessionID     string       `json:"session_id"`
-	Recipient     string       `json:"recipient"`
-	Purpose       string       `json:"purpose"`
-	Capabilities  []Capability `json:"capabilities"`
-	IssuedAt      int64        `json:"issued_at_unix_nano"`
-	ExpiresAt     int64        `json:"expires_at_unix_nano"`
-	Nonce         string       `json:"nonce"`
-	TargetCap     string       `json:"target_capability_handle"`
-	RecipientBind string       `json:"recipient_binding"`
-	Signature     string       `json:"signature"`
+	Version                int          `json:"version"`
+	SessionID              string       `json:"session_id"`
+	Recipient              string       `json:"recipient"`
+	Purpose                string       `json:"purpose"`
+	Capabilities           []Capability `json:"capabilities"`
+	IssuedAt               int64        `json:"issued_at_unix_nano"`
+	ExpiresAt              int64        `json:"expires_at_unix_nano"`
+	Nonce                  string       `json:"nonce"`
+	TargetCapabilityHandle string       `json:"target_capability_handle"`
+	RecipientBind          string       `json:"recipient_binding"`
+	Signature              string       `json:"signature"`
 }
 
 // canonical returns the deterministic byte sequence signed by the
@@ -115,7 +115,7 @@ func (a *Artifact) canonical() []byte {
 		EA  int64        `json:"ea"`
 		N   string       `json:"n"`
 		T   string       `json:"t"`
-	}{a.Version, a.SessionID, a.Recipient, a.Purpose, caps, a.IssuedAt, a.ExpiresAt, a.Nonce, a.TargetCap}
+	}{a.Version, a.SessionID, a.Recipient, a.Purpose, caps, a.IssuedAt, a.ExpiresAt, a.Nonce, a.TargetCapabilityHandle}
 	b, err := json.Marshal(aux)
 	if err != nil {
 		panic(fmt.Errorf("canonical marshal: %w", err))
@@ -284,16 +284,16 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 	}
 	now := clock()
 	a := &Artifact{
-		Version:       1,
-		SessionID:     sessionID,
-		Recipient:     recipient,
-		Purpose:       purpose,
-		Capabilities:  append([]Capability(nil), caps...),
-		IssuedAt:      now.UnixNano(),
-		ExpiresAt:     now.Add(ttl).UnixNano(),
-		Nonce:         randomHex(16),
-		TargetCap:     randomHex(8),
-		RecipientBind: hexMac(sk, []byte("dhr-poc/recipient-bind/v1|"+recipient)),
+		Version:                1,
+		SessionID:              sessionID,
+		Recipient:              recipient,
+		Purpose:                purpose,
+		Capabilities:           append([]Capability(nil), caps...),
+		IssuedAt:               now.UnixNano(),
+		ExpiresAt:              now.Add(ttl).UnixNano(),
+		Nonce:                  randomHex(16),
+		TargetCapabilityHandle: randomHex(8),
+		RecipientBind:          hexMac(sk, []byte("dhr-poc/recipient-bind/v1|"+recipient)),
 	}
 	a.Signature = hexMac(sk, a.canonical())
 	return a, nil

@@ -313,17 +313,17 @@ func TestArtifactCannotCrossSession(t *testing.T) {
 // Any added, removed, or renamed JSON field requires explicit review.
 func TestSerializedFieldSurfacesClosed(t *testing.T) {
 	artifact := Artifact{
-		Version:       1,
-		SessionID:     "session",
-		Recipient:     dpRole,
-		Purpose:       "interactive-remote",
-		Capabilities:  []Capability{CapViewScreen},
-		IssuedAt:      1,
-		ExpiresAt:     2,
-		Nonce:         "nonce",
-		TargetCap:     "target",
-		RecipientBind: "binding",
-		Signature:     "signature",
+		Version:                1,
+		SessionID:              "session",
+		Recipient:              dpRole,
+		Purpose:                "interactive-remote",
+		Capabilities:           []Capability{CapViewScreen},
+		IssuedAt:               1,
+		ExpiresAt:              2,
+		Nonce:                  "nonce",
+		TargetCapabilityHandle: "target",
+		RecipientBind:          "binding",
+		Signature:              "signature",
 	}
 	assertJSONFieldSurface(t, artifact, []string{
 		"capabilities",
@@ -444,16 +444,16 @@ func partialCompromiseSetup(t *testing.T) (*Issuer, *Validator, string, string, 
 func forgeUsingKey(sessionID, recipient, purpose string, caps []Capability, key []byte) *Artifact {
 	now := time.Now()
 	a := &Artifact{
-		Version:       1,
-		SessionID:     sessionID,
-		Recipient:     recipient,
-		Purpose:       purpose,
-		Capabilities:  append([]Capability(nil), caps...),
-		IssuedAt:      now.UnixNano(),
-		ExpiresAt:     now.Add(time.Minute).UnixNano(),
-		Nonce:         randomHex(16),
-		TargetCap:     randomHex(8),
-		RecipientBind: hexMac(key, []byte("dhr-poc/recipient-bind/v1|"+recipient)),
+		Version:                1,
+		SessionID:              sessionID,
+		Recipient:              recipient,
+		Purpose:                purpose,
+		Capabilities:           append([]Capability(nil), caps...),
+		IssuedAt:               now.UnixNano(),
+		ExpiresAt:              now.Add(time.Minute).UnixNano(),
+		Nonce:                  randomHex(16),
+		TargetCapabilityHandle: randomHex(8),
+		RecipientBind:          hexMac(key, []byte("dhr-poc/recipient-bind/v1|"+recipient)),
 	}
 	a.Signature = hexMac(key, a.canonical())
 	return a
