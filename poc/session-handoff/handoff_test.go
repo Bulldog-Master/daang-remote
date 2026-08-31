@@ -623,10 +623,17 @@ func FuzzVerifyMalformed(f *testing.F) {
 		if string(sig) == base.Signature && string(nonce) == base.Nonce && string(bind) == base.RecipientBind {
 			return
 		}
-		if err := v.Verify(&a); err == nil {
-			t.Fatalf("malformed artifact verified: sig=%q nonce=%q bind=%q", sig, nonce, bind)
-		}
+		requireVerifyFails(t, v, &a, sig, nonce, bind)
 	})
+}
+
+// requireVerifyFails fails the test unless Verify rejects a. It exists so
+// the fuzz body reads as a single assertion; the oracle is unchanged.
+func requireVerifyFails(t *testing.T, v *Validator, a *Artifact, sig, nonce, bind []byte) {
+	t.Helper()
+	if err := v.Verify(a); err == nil {
+		t.Fatalf("malformed artifact verified: sig=%q nonce=%q bind=%q", sig, nonce, bind)
+	}
 }
 
 // #31 Return-flow event stream is not a probing oracle.
