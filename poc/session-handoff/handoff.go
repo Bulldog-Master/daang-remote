@@ -256,12 +256,19 @@ func (i *Issuer) StartSession() (sessionID string, sessionKey []byte) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	sessionID = randomHex(16)
-	mac := hmac.New(sha256.New, i.issuerKey)
-	mac.Write([]byte("dhr-poc/session-key/v1|"))
-	mac.Write([]byte(sessionID))
-	sessionKey = mac.Sum(nil)
+	sessionKey = deriveSessionKey(i.issuerKey, sessionID)
 	i.sessionKey[sessionID] = sessionKey
 	return sessionID, sessionKey
+}
+
+// deriveSessionKey derives the per-session subkey from the global issuer
+// key by domain-separated HMAC. The domain string is part of the derived
+// value and must not change without a version bump.
+func deriveSessionKey(issuerKey []byte, sessionID string) []byte {
+	mac := hmac.New(sha256.New, issuerKey)
+	mac.Write([]byte("dhr-poc/session-key/v1|"))
+	mac.Write([]byte(sessionID))
+	return mac.Sum(nil)
 }
 
 // Issue produces a signed handoff artifact for the given session.
