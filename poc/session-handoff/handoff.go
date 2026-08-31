@@ -377,6 +377,16 @@ func (v *Validator) InstallSession(sessionID string, key []byte, recipient strin
 	})
 }
 
+// InstallFromIssuer installs a session using the session-local material
+// held by the issuer, so single-process callers do not have to thread the
+// StartSession return values through their own plumbing.
+func (v *Validator) InstallFromIssuer(iss *Issuer, sessionID, recipient string, granted []Capability) {
+	iss.mu.Lock()
+	key := append([]byte(nil), iss.sessionKey[sessionID]...)
+	iss.mu.Unlock()
+	v.InstallSession(sessionID, key, recipient, granted)
+}
+
 // SessionExists reports whether the validator has state for a session id.
 func (v *Validator) SessionExists(sessionID string) bool {
 	v.mu.Lock()
