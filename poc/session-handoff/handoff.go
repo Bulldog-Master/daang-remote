@@ -282,6 +282,9 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 	if ttl <= 0 {
 		return nil, errors.New("handoff: ttl must be positive")
 	}
+	if len(caps) == 0 {
+		return nil, errors.New("handoff: at least one capability required")
+	}
 	now := clock()
 	a := &Artifact{
 		Version:       1,
