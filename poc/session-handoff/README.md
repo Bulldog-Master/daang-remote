@@ -1,5 +1,8 @@
 # Session Handoff Contract PoC
 
+Experimental. Not production code. See `docs/evidence/session-handoff-poc.md`
+for the recorded evidence and the explicit non-goals.
+
 **EXPERIMENTAL — evidence-generating code only.**
 
 This module is *not* the Daang Remote backend, *not* the production Control
