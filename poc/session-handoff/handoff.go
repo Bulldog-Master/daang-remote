@@ -425,7 +425,10 @@ func (v *Validator) verifyLocked(a *Artifact) (*sessionState, error) {
 		return nil, errors.New("handoff: recipient/session mismatch")
 	}
 	now := v.clock().UnixNano()
-	// small clock skew tolerance forward
+	// Small forward skew tolerance. The Control Plane and Data Plane are
+	// separate processes with independent clocks, so an artifact may be
+	// stamped marginally ahead of the validator's own view of now. The
+	// tolerance is deliberately one-sided: lateness is never forgiven.
 	if a.IssuedAt > now+int64(5*time.Second) {
 		return nil, errors.New("handoff: issued in future")
 	}
