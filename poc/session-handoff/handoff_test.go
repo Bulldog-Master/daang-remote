@@ -591,6 +591,8 @@ func TestVerifyBadInputs(t *testing.T) {
 		{"bad-nonce-sig", tamper(func(a *Artifact) { a.Nonce = "deadbeef" })},
 		{"bad-bind", tamper(func(a *Artifact) { a.RecipientBind = "aa" })},
 		{"unknown-session", tamper(func(a *Artifact) { a.SessionID = hex.EncodeToString(bytes.Repeat([]byte{1}, 16)) })},
+		{"already-expired", tamper(func(a *Artifact) { a.ExpiresAt = a.IssuedAt })},
+		{"empty-recipient", tamper(func(a *Artifact) { a.Recipient = "" })},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
