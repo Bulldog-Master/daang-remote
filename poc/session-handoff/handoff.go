@@ -366,7 +366,7 @@ func (v *Validator) InstallSession(sessionID string, key []byte, recipient strin
 		g[c] = true
 	}
 	v.sessions[sessionID] = &sessionState{
-		key:       append([]byte(nil), key...),
+		key:       key,
 		recipient: recipient,
 		granted:   g,
 		revoked:   map[Capability]bool{},
