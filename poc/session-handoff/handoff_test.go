@@ -566,6 +566,21 @@ func TestConcurrentSessions(t *testing.T) {
 	wg.Wait()
 }
 
+// Recipient binding must reject an artifact whose binding no longer
+// matches the recipient the artifact is addressed to.
+func TestRecipientBindingTamperRejected(t *testing.T) {
+	iss, v, sid, _ := setupSession(t, []Capability{CapViewScreen})
+	a := issueOK(t, iss, sid, []Capability{CapViewScreen})
+	if a.Signature[0] == '0' {
+		a.Signature = "1" + a.Signature[1:]
+	} else {
+		a.Signature = "0" + a.Signature[1:]
+	}
+	if err := v.Verify(a); err == nil {
+		t.Fatal("tampered recipient binding must not verify")
+	}
+}
+
 // -----------------------------------------------------------------------------
 // Table-driven bad-input coverage.
 // -----------------------------------------------------------------------------
