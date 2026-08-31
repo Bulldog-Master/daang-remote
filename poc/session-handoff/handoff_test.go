@@ -3,6 +3,9 @@ package handoff
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
+	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -31,6 +34,68 @@ func issueOK(t *testing.T, iss *Issuer, sid string, caps []Capability) *Artifact
 		t.Fatalf("issue: %v", err)
 	}
 	return a
+}
+
+func effectiveJSONFieldNames(typ reflect.Type) []string {
+	if typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+
+	var names []string
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if field.PkgPath != "" {
+			continue
+		}
+
+		name := field.Name
+		if tag, ok := field.Tag.Lookup("json"); ok {
+			name = strings.Split(tag, ",")[0]
+			if name == "-" {
+				continue
+			}
+			if name == "" {
+				name = field.Name
+			}
+		}
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+	return names
+}
+
+func emittedJSONFieldNames(t *testing.T, value interface{}) []string {
+	t.Helper()
+
+	data, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal field-surface fixture: %v", err)
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		t.Fatalf("unmarshal field-surface fixture: %v", err)
+	}
+
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func assertJSONFieldSurface(t *testing.T, value interface{}, want []string) {
+	t.Helper()
+	sort.Strings(want)
+
+	if got := effectiveJSONFieldNames(reflect.TypeOf(value)); !reflect.DeepEqual(got, want) {
+		t.Fatalf("declared JSON field surface changed: got %v, want %v", got, want)
+	}
+	if got := emittedJSONFieldNames(t, value); !reflect.DeepEqual(got, want) {
+		t.Fatalf("emitted JSON field surface changed: got %v, want %v", got, want)
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -242,6 +307,50 @@ func TestArtifactCannotCrossSession(t *testing.T) {
 	if err := v.Verify(aA); err == nil {
 		t.Fatal("cross-session artifact must not verify")
 	}
+}
+
+// Run-001 closes the serialized Artifact and Event field surfaces.
+// Any added, removed, or renamed JSON field requires explicit review.
+func TestSerializedFieldSurfacesClosed(t *testing.T) {
+	artifact := Artifact{
+		Version:       1,
+		SessionID:     "session",
+		Recipient:     dpRole,
+		Purpose:       "interactive-remote",
+		Capabilities:  []Capability{CapViewScreen},
+		IssuedAt:      1,
+		ExpiresAt:     2,
+		Nonce:         "nonce",
+		TargetCap:     "target",
+		RecipientBind: "binding",
+		Signature:     "signature",
+	}
+	assertJSONFieldSurface(t, artifact, []string{
+		"capabilities",
+		"expires_at_unix_nano",
+		"issued_at_unix_nano",
+		"nonce",
+		"purpose",
+		"recipient",
+		"recipient_binding",
+		"session_id",
+		"signature",
+		"target_capability_handle",
+		"version",
+	})
+
+	event := Event{
+		Type:       EventCapabilityDenied,
+		SessionID:  "session",
+		Capability: CapViewScreen,
+		At:         time.Unix(0, 0).UTC(),
+	}
+	assertJSONFieldSurface(t, event, []string{
+		"at",
+		"capability",
+		"session_id",
+		"type",
+	})
 }
 
 // #21 Artifact representation contains no prohibited long-lived identity fields.
