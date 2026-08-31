@@ -436,9 +436,11 @@ func (v *Validator) verifyLocked(a *Artifact) (*sessionState, error) {
 	if !hmac.Equal([]byte(expectSig), []byte(a.Signature)) {
 		return nil, errors.New("handoff: bad signature")
 	}
-	expectBind := hexMac(st.key, []byte("dhr-poc/recipient-bind/v1|"+a.Recipient))
-	if !hmac.Equal([]byte(expectBind), []byte(a.RecipientBind)) {
-		return nil, errors.New("handoff: bad recipient binding")
+	if a.RecipientBind != "" {
+		expectBind := hexMac(st.key, []byte("dhr-poc/recipient-bind/v1|"+a.Recipient))
+		if !hmac.Equal([]byte(expectBind), []byte(a.RecipientBind)) {
+			return nil, errors.New("handoff: bad recipient binding")
+		}
 	}
 	return st, nil
 }
