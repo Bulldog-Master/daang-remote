@@ -52,6 +52,17 @@ var AllCapabilities = []Capability{
 	CapTransferFile,
 }
 
+// CapabilityKnown reports whether c is one of the capabilities this PoC
+// models. Anything else is denied by default.
+func CapabilityKnown(c Capability) bool {
+	for _, known := range AllCapabilities {
+		if c == known {
+			return true
+		}
+	}
+	return false
+}
+
 // EventType is a bounded lifecycle event on the return flow.
 type EventType string
 
@@ -281,6 +292,11 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 	}
 	if ttl <= 0 {
 		return nil, errors.New("handoff: ttl must be positive")
+	}
+	for _, c := range caps {
+		if !CapabilityKnown(c) {
+			return nil, errors.New("handoff: unmodelled capability")
+		}
 	}
 	now := clock()
 	a := &Artifact{
