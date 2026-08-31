@@ -15,11 +15,5 @@ package handoff
 // not the original StartSession return values. It is deliberately kept
 // inside a _test.go file so production callers cannot link against it.
 func testSessionKey(i *Issuer, sessionID string) []byte {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	sk, ok := i.sessionKey[sessionID]
-	if !ok {
-		return nil
-	}
-	return append([]byte(nil), sk...)
+	return i.sessionKeyFor(sessionID)
 }

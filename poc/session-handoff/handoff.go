@@ -299,11 +299,17 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 	return a, nil
 }
 
-// NOTE: no accessor is provided for the per-session key. Tests obtain
-// session-local material via StartSession's return value (see
-// export_test.go for the test-only helper used by partial-compromise
-// tests). Publishing a production-compilable accessor for session-local
-// material would weaken the boundary the PoC is designed to test.
+// sessionKeyFor returns a copy of the session-local material registered
+// for sessionID, or nil if the session is unknown.
+func (i *Issuer) sessionKeyFor(sessionID string) []byte {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	sk, ok := i.sessionKey[sessionID]
+	if !ok {
+		return nil
+	}
+	return append([]byte(nil), sk...)
+}
 
 func hexMac(key, msg []byte) string {
 	m := hmac.New(sha256.New, key)
