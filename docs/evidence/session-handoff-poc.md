@@ -1,4 +1,8 @@
-# Session Handoff Contract PoC — Evidence Report
+# Session Handoff Contract PoC
+
+<!-- Scope note: this document records what the PoC demonstrates and, just
+as importantly, what it does not. Read the non-goals before citing any
+result here as production evidence. --> — Evidence Report
 
 **Status:** experimental evidence, not production readiness.
 
