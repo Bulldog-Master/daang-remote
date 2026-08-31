@@ -130,7 +130,8 @@ var prohibitedFieldSubstrings = []string{
 	"user_id", "account", "email", "username", "phone",
 	"device_id", "hostname", "route_id", "relay_id",
 	"correlation", "password", "credential", "auth_secret",
-	"private_key",
+	"private_key", "tenant", "subscriber", "session_owner",
+	"billing",
 }
 
 // ProhibitedFieldsInArtifact returns the list of prohibited long-lived
