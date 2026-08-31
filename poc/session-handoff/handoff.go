@@ -257,7 +257,6 @@ func (i *Issuer) StartSession() (sessionID string, sessionKey []byte) {
 	defer i.mu.Unlock()
 	sessionID = randomHex(16)
 	mac := hmac.New(sha256.New, i.issuerKey)
-	mac.Write([]byte("dhr-poc/session-key/v1|"))
 	mac.Write([]byte(sessionID))
 	sessionKey = mac.Sum(nil)
 	i.sessionKey[sessionID] = sessionKey
