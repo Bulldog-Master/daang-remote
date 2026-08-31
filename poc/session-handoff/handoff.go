@@ -326,7 +326,7 @@ type sessionState struct {
 	granted     map[Capability]bool
 	revoked     map[Capability]bool
 	invalidated bool
-	seenNonce   map[string]bool
+	seenNonce   map[string]struct{}
 }
 
 // Validator models the Data Plane. It performs every check independently
@@ -370,7 +370,7 @@ func (v *Validator) InstallSession(sessionID string, key []byte, recipient strin
 		recipient: recipient,
 		granted:   g,
 		revoked:   map[Capability]bool{},
-		seenNonce: map[string]bool{},
+		seenNonce: map[string]struct{}{},
 	}
 	v.events = append(v.events, Event{
 		Type: EventSessionStarted, SessionID: sessionID, At: v.clock(),
@@ -463,7 +463,7 @@ func (v *Validator) Use(a *Artifact, cap Capability) error {
 	if err != nil {
 		return err
 	}
-	if st.seenNonce[a.Nonce] {
+	if _, seen := st.seenNonce[a.Nonce]; seen {
 		return errors.New("handoff: replay")
 	}
 	artifactGrants := false
@@ -480,7 +480,7 @@ func (v *Validator) Use(a *Artifact, cap Capability) error {
 		})
 		return errors.New("handoff: capability denied")
 	}
-	st.seenNonce[a.Nonce] = true
+	st.seenNonce[a.Nonce] = struct{}{}
 	return nil
 }
 
