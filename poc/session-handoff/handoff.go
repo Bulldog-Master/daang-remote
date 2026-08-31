@@ -16,6 +16,7 @@
 package handoff
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -494,7 +495,7 @@ func (v *Validator) Revoke(sessionID string, cap Capability, proof []byte) error
 	if !ok {
 		return errors.New("handoff: unknown session")
 	}
-	if len(proof) == 0 || !hmac.Equal(proof, st.key) {
+	if len(proof) == 0 || !bytes.Equal(proof, st.key) {
 		return errors.New("handoff: bad proof")
 	}
 	st.revoked[cap] = true
@@ -514,7 +515,7 @@ func (v *Validator) Invalidate(sessionID string, proof []byte) error {
 	if !ok {
 		return errors.New("handoff: unknown session")
 	}
-	if len(proof) == 0 || !hmac.Equal(proof, st.key) {
+	if len(proof) == 0 || !bytes.Equal(proof, st.key) {
 		return errors.New("handoff: bad proof")
 	}
 	st.invalidated = true
@@ -532,7 +533,7 @@ func (v *Validator) EndSession(sessionID string, proof []byte) error {
 	if !ok {
 		return errors.New("handoff: unknown session")
 	}
-	if len(proof) == 0 || !hmac.Equal(proof, st.key) {
+	if len(proof) == 0 || !bytes.Equal(proof, st.key) {
 		return errors.New("handoff: bad proof")
 	}
 	st.invalidated = true
