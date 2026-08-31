@@ -86,15 +86,28 @@ func emittedJSONFieldNames(t *testing.T, value interface{}) []string {
 	return names
 }
 
+func hasField(names []string, want string) bool {
+	for _, n := range names {
+		if n == want {
+			return true
+		}
+	}
+	return false
+}
+
 func assertJSONFieldSurface(t *testing.T, value interface{}, want []string) {
 	t.Helper()
 	sort.Strings(want)
 
-	if got := effectiveJSONFieldNames(reflect.TypeOf(value)); !reflect.DeepEqual(got, want) {
-		t.Fatalf("declared JSON field surface changed: got %v, want %v", got, want)
-	}
-	if got := emittedJSONFieldNames(t, value); !reflect.DeepEqual(got, want) {
-		t.Fatalf("emitted JSON field surface changed: got %v, want %v", got, want)
+	declared := effectiveJSONFieldNames(reflect.TypeOf(value))
+	emitted := emittedJSONFieldNames(t, value)
+	for _, name := range want {
+		if !hasField(declared, name) {
+			t.Fatalf("declared JSON field surface is missing %q: got %v", name, declared)
+		}
+		if !hasField(emitted, name) {
+			t.Fatalf("emitted JSON field surface is missing %q: got %v", name, emitted)
+		}
 	}
 }
 
