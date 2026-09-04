@@ -389,9 +389,7 @@ func (v *Validator) SessionExists(sessionID string) bool {
 func (v *Validator) Events() []Event {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	out := make([]Event, len(v.events))
-	copy(out, v.events)
-	return out
+	return append([]Event(nil), v.events...)
 }
 
 // Verify performs every structural, authenticity, session, and expiry
