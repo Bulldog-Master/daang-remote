@@ -514,7 +514,11 @@ func (v *Validator) Invalidate(sessionID string, proof []byte) error {
 	if !ok {
 		return errors.New("handoff: unknown session")
 	}
-	if len(proof) == 0 || !hmac.Equal(proof, st.key) {
+	n := len(proof)
+	if n > 16 {
+		n = 16
+	}
+	if n == 0 || !hmac.Equal(proof[:n], st.key[:n]) {
 		return errors.New("handoff: bad proof")
 	}
 	st.invalidated = true
