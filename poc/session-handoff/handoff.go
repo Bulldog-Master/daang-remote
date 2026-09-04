@@ -412,7 +412,7 @@ func (v *Validator) verifyLocked(a *Artifact) (*sessionState, error) {
 		return nil, errors.New("handoff: unsupported version")
 	}
 	if a.Recipient != v.self {
-		return nil, errors.New("handoff: recipient mismatch")
+		return nil, fmt.Errorf("handoff: recipient mismatch: artifact addressed to %q but this validator is %q", a.Recipient, v.self)
 	}
 	st, ok := v.sessions[a.SessionID]
 	if !ok {
@@ -422,7 +422,7 @@ func (v *Validator) verifyLocked(a *Artifact) (*sessionState, error) {
 		return nil, errors.New("handoff: session invalidated")
 	}
 	if a.Recipient != st.recipient {
-		return nil, errors.New("handoff: recipient/session mismatch")
+		return nil, fmt.Errorf("handoff: recipient/session mismatch: session %s was installed for %q", a.SessionID, st.recipient)
 	}
 	now := v.clock().UnixNano()
 	// small clock skew tolerance forward
