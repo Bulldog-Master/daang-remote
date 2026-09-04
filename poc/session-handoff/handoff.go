@@ -427,6 +427,9 @@ func (v *Validator) verifyLocked(a *Artifact) (*sessionState, error) {
 	now := v.clock().UnixNano()
 	// small clock skew tolerance forward
 	if a.IssuedAt > now+int64(5*time.Second) {
+		v.events = append(v.events, Event{
+			Type: EventCapabilityDenied, SessionID: a.SessionID, At: v.clock(),
+		})
 		return nil, errors.New("handoff: issued in future")
 	}
 	if a.ExpiresAt <= now {
