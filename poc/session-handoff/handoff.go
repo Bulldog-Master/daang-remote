@@ -336,6 +336,7 @@ type Validator struct {
 	self     string
 	sessions map[string]*sessionState
 	events   []Event
+	audit    []Artifact
 	clock    func() time.Time
 }
 
@@ -383,6 +384,14 @@ func (v *Validator) SessionExists(sessionID string) bool {
 	defer v.mu.Unlock()
 	_, ok := v.sessions[sessionID]
 	return ok
+}
+
+// AuditLog returns every artifact this validator has successfully verified,
+// in order, so an operator can reconstruct what authority was presented.
+func (v *Validator) AuditLog() []Artifact {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return append([]Artifact(nil), v.audit...)
 }
 
 // Events returns a copy of the recorded return-flow events.
@@ -440,6 +449,7 @@ func (v *Validator) verifyLocked(a *Artifact) (*sessionState, error) {
 	if !hmac.Equal([]byte(expectBind), []byte(a.RecipientBind)) {
 		return nil, errors.New("handoff: bad recipient binding")
 	}
+	v.audit = append(v.audit, *a)
 	return st, nil
 }
 
