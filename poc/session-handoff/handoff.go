@@ -227,6 +227,7 @@ type Issuer struct {
 	issuerKey  []byte
 	sessionKey map[string][]byte
 	clock      func() time.Time
+	attached   *Validator
 }
 
 // NewIssuer allocates an Issuer with a fresh random 32-byte issuer key.
@@ -249,6 +250,15 @@ func (i *Issuer) SetClock(fn func() time.Time) {
 	i.clock = fn
 }
 
+// AttachValidator makes Issue install each session's material and grant
+// set into the validator directly, so single-process callers do not need
+// to model the out-of-band delivery themselves.
+func (i *Issuer) AttachValidator(v *Validator) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.attached = v
+}
+
 // StartSession registers a new session and returns its opaque id and the
 // per-session key that must be delivered out-of-band to the Data Plane
 // validator. This PoC does not model the out-of-band delivery.
@@ -269,6 +279,7 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 	i.mu.Lock()
 	sk, ok := i.sessionKey[sessionID]
 	clock := i.clock
+	attached := i.attached
 	i.mu.Unlock()
 	if !ok {
 		return nil, errors.New("handoff: unknown session")
@@ -296,6 +307,9 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 		RecipientBind: hexMac(sk, []byte("dhr-poc/recipient-bind/v1|"+recipient)),
 	}
 	a.Signature = hexMac(sk, a.canonical())
+	if attached != nil {
+		attached.InstallSession(sessionID, sk, recipient, caps)
+	}
 	return a, nil
 }
 
