@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -200,23 +201,7 @@ func containsFold(s, sub string) bool {
 	if len(sub) == 0 {
 		return false
 	}
-	ls, lsub := lower(s), lower(sub)
-	for i := 0; i+len(lsub) <= len(ls); i++ {
-		if ls[i:i+len(lsub)] == lsub {
-			return true
-		}
-	}
-	return false
-}
-
-func lower(s string) string {
-	b := []byte(s)
-	for i, c := range b {
-		if c >= 'A' && c <= 'Z' {
-			b[i] = c + 32
-		}
-	}
-	return string(b)
+	return strings.Contains(strings.ToLower(s), strings.ToLower(sub))
 }
 
 // Issuer models the Control Plane. It holds a global issuer key and derives
