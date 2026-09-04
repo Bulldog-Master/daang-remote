@@ -114,8 +114,7 @@ func (a *Artifact) canonical() []byte {
 		IA  int64        `json:"ia"`
 		EA  int64        `json:"ea"`
 		N   string       `json:"n"`
-		T   string       `json:"t"`
-	}{a.Version, a.SessionID, a.Recipient, a.Purpose, caps, a.IssuedAt, a.ExpiresAt, a.Nonce, a.TargetCap}
+	}{a.Version, a.SessionID, a.Recipient, a.Purpose, caps, a.IssuedAt, a.ExpiresAt, a.Nonce}
 	b, err := json.Marshal(aux)
 	if err != nil {
 		panic(fmt.Errorf("canonical marshal: %w", err))
