@@ -314,6 +314,7 @@ func TestArtifactCannotCrossSession(t *testing.T) {
 func TestSerializedFieldSurfacesClosed(t *testing.T) {
 	artifact := Artifact{
 		Version:       1,
+		Algorithm:     AlgorithmHMACSHA256,
 		SessionID:     "session",
 		Recipient:     dpRole,
 		Purpose:       "interactive-remote",
@@ -326,6 +327,7 @@ func TestSerializedFieldSurfacesClosed(t *testing.T) {
 		Signature:     "signature",
 	}
 	assertJSONFieldSurface(t, artifact, []string{
+		"alg",
 		"capabilities",
 		"expires_at_unix_nano",
 		"issued_at_unix_nano",
@@ -445,6 +447,7 @@ func forgeUsingKey(sessionID, recipient, purpose string, caps []Capability, key 
 	now := time.Now()
 	a := &Artifact{
 		Version:       1,
+		Algorithm:     AlgorithmHMACSHA256,
 		SessionID:     sessionID,
 		Recipient:     recipient,
 		Purpose:       purpose,

@@ -29,6 +29,10 @@ import (
 	"time"
 )
 
+// AlgorithmHMACSHA256 is the only signing algorithm identifier this PoC
+// emits. It is a fixed constant carried so future formats can be told apart.
+const AlgorithmHMACSHA256 = "hmac-sha256-v1"
+
 // Capability is one of the independent capability types the PoC models.
 // No capability implies another. Deny by default.
 type Capability string
@@ -87,6 +91,7 @@ type Event struct {
 // authentication secret, or production key material.
 type Artifact struct {
 	Version       int          `json:"version"`
+	Algorithm     string       `json:"alg"`
 	SessionID     string       `json:"session_id"`
 	Recipient     string       `json:"recipient"`
 	Purpose       string       `json:"purpose"`
@@ -107,6 +112,7 @@ func (a *Artifact) canonical() []byte {
 	sort.Slice(caps, func(i, j int) bool { return caps[i] < caps[j] })
 	aux := struct {
 		V   int          `json:"v"`
+		A   string       `json:"a"`
 		SID string       `json:"sid"`
 		R   string       `json:"r"`
 		P   string       `json:"p"`
@@ -115,7 +121,7 @@ func (a *Artifact) canonical() []byte {
 		EA  int64        `json:"ea"`
 		N   string       `json:"n"`
 		T   string       `json:"t"`
-	}{a.Version, a.SessionID, a.Recipient, a.Purpose, caps, a.IssuedAt, a.ExpiresAt, a.Nonce, a.TargetCap}
+	}{a.Version, a.Algorithm, a.SessionID, a.Recipient, a.Purpose, caps, a.IssuedAt, a.ExpiresAt, a.Nonce, a.TargetCap}
 	b, err := json.Marshal(aux)
 	if err != nil {
 		panic(fmt.Errorf("canonical marshal: %w", err))
@@ -285,6 +291,7 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 	now := clock()
 	a := &Artifact{
 		Version:       1,
+		Algorithm:     AlgorithmHMACSHA256,
 		SessionID:     sessionID,
 		Recipient:     recipient,
 		Purpose:       purpose,
@@ -410,6 +417,9 @@ func (v *Validator) verifyLocked(a *Artifact) (*sessionState, error) {
 	}
 	if a.Version != 1 {
 		return nil, errors.New("handoff: unsupported version")
+	}
+	if a.Algorithm != AlgorithmHMACSHA256 {
+		return nil, errors.New("handoff: unsupported algorithm")
 	}
 	if a.Recipient != v.self {
 		return nil, errors.New("handoff: recipient mismatch")

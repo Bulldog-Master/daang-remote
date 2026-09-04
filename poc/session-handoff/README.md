@@ -1,5 +1,9 @@
 # Session Handoff Contract PoC
 
+Artifact contract note: the serialized artifact carries a fixed `alg`
+identifier (`hmac-sha256-v1`). It is a constant, is covered by the signature,
+and carries no session, user, device, or deployment information.
+
 **EXPERIMENTAL — evidence-generating code only.**
 
 This module is *not* the Daang Remote backend, *not* the production Control
