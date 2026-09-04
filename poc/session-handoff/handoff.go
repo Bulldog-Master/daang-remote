@@ -185,9 +185,14 @@ func scanProhibited(v interface{}) []string {
 func walkJSON(v interface{}, keyFn func(string)) {
 	switch t := v.(type) {
 	case map[string]interface{}:
-		for k, sub := range t {
+		keys := make([]string, 0, len(t))
+		for k := range t {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
 			keyFn(k)
-			walkJSON(sub, keyFn)
+			walkJSON(t[k], keyFn)
 		}
 	case []interface{}:
 		for _, sub := range t {
