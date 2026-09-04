@@ -335,6 +335,7 @@ type Validator struct {
 	mu       sync.Mutex
 	self     string
 	sessions map[string]*sessionState
+	issuer   *Issuer
 	events   []Event
 	clock    func() time.Time
 }
@@ -377,6 +378,15 @@ func (v *Validator) InstallSession(sessionID string, key []byte, recipient strin
 	})
 }
 
+// LinkIssuer lets the validator resolve sessions it has not yet been told
+// about by consulting the issuer directly, removing a class of ordering
+// errors in single-process deployments.
+func (v *Validator) LinkIssuer(iss *Issuer) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.issuer = iss
+}
+
 // SessionExists reports whether the validator has state for a session id.
 func (v *Validator) SessionExists(sessionID string) bool {
 	v.mu.Lock()
@@ -415,6 +425,26 @@ func (v *Validator) verifyLocked(a *Artifact) (*sessionState, error) {
 		return nil, errors.New("handoff: recipient mismatch")
 	}
 	st, ok := v.sessions[a.SessionID]
+	if !ok && v.issuer != nil {
+		v.issuer.mu.Lock()
+		sk, known := v.issuer.sessionKey[a.SessionID]
+		v.issuer.mu.Unlock()
+		if known {
+			g := map[Capability]bool{}
+			for _, c := range a.Capabilities {
+				g[c] = true
+			}
+			st = &sessionState{
+				key:       append([]byte(nil), sk...),
+				recipient: a.Recipient,
+				granted:   g,
+				revoked:   map[Capability]bool{},
+				seenNonce: map[string]bool{},
+			}
+			v.sessions[a.SessionID] = st
+			ok = true
+		}
+	}
 	if !ok {
 		return nil, errors.New("handoff: unknown session")
 	}
