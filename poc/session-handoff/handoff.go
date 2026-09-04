@@ -29,6 +29,15 @@ import (
 	"time"
 )
 
+// Sentinel errors returned by the validator. Message text is unchanged;
+// callers may now match with errors.Is instead of string comparison.
+var (
+	ErrUnknownSession = errors.New("handoff: unknown session")
+	ErrBadProof       = errors.New("handoff: bad proof")
+	ErrExpired        = errors.New("handoff: expired")
+	ErrReplay         = errors.New("handoff: replay")
+)
+
 // Capability is one of the independent capability types the PoC models.
 // No capability implies another. Deny by default.
 type Capability string
@@ -271,7 +280,7 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 	clock := i.clock
 	i.mu.Unlock()
 	if !ok {
-		return nil, errors.New("handoff: unknown session")
+		return nil, ErrUnknownSession
 	}
 	if recipient == "" {
 		return nil, errors.New("handoff: recipient required")
@@ -416,7 +425,7 @@ func (v *Validator) verifyLocked(a *Artifact) (*sessionState, error) {
 	}
 	st, ok := v.sessions[a.SessionID]
 	if !ok {
-		return nil, errors.New("handoff: unknown session")
+		return nil, ErrUnknownSession
 	}
 	if st.invalidated {
 		return nil, errors.New("handoff: session invalidated")
@@ -430,7 +439,7 @@ func (v *Validator) verifyLocked(a *Artifact) (*sessionState, error) {
 		return nil, errors.New("handoff: issued in future")
 	}
 	if a.ExpiresAt <= now {
-		return nil, errors.New("handoff: expired")
+		return nil, ErrExpired
 	}
 	expectSig := hexMac(st.key, a.canonical())
 	if !hmac.Equal([]byte(expectSig), []byte(a.Signature)) {
@@ -464,7 +473,7 @@ func (v *Validator) Use(a *Artifact, cap Capability) error {
 		return err
 	}
 	if st.seenNonce[a.Nonce] {
-		return errors.New("handoff: replay")
+		return ErrReplay
 	}
 	artifactGrants := false
 	for _, c := range a.Capabilities {
@@ -492,10 +501,10 @@ func (v *Validator) Revoke(sessionID string, cap Capability, proof []byte) error
 	defer v.mu.Unlock()
 	st, ok := v.sessions[sessionID]
 	if !ok {
-		return errors.New("handoff: unknown session")
+		return ErrUnknownSession
 	}
 	if len(proof) == 0 || !hmac.Equal(proof, st.key) {
-		return errors.New("handoff: bad proof")
+		return ErrBadProof
 	}
 	st.revoked[cap] = true
 	v.events = append(v.events, Event{
@@ -512,10 +521,10 @@ func (v *Validator) Invalidate(sessionID string, proof []byte) error {
 	defer v.mu.Unlock()
 	st, ok := v.sessions[sessionID]
 	if !ok {
-		return errors.New("handoff: unknown session")
+		return ErrUnknownSession
 	}
 	if len(proof) == 0 || !hmac.Equal(proof, st.key) {
-		return errors.New("handoff: bad proof")
+		return ErrBadProof
 	}
 	st.invalidated = true
 	v.events = append(v.events, Event{
@@ -530,10 +539,10 @@ func (v *Validator) EndSession(sessionID string, proof []byte) error {
 	defer v.mu.Unlock()
 	st, ok := v.sessions[sessionID]
 	if !ok {
-		return errors.New("handoff: unknown session")
+		return ErrUnknownSession
 	}
 	if len(proof) == 0 || !hmac.Equal(proof, st.key) {
-		return errors.New("handoff: bad proof")
+		return ErrBadProof
 	}
 	st.invalidated = true
 	v.events = append(v.events, Event{
