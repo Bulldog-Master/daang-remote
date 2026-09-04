@@ -292,7 +292,7 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 		IssuedAt:      now.UnixNano(),
 		ExpiresAt:     now.Add(ttl).UnixNano(),
 		Nonce:         randomHex(16),
-		TargetCap:     randomHex(8),
+		TargetCap:     randomHex(16),
 		RecipientBind: hexMac(sk, []byte("dhr-poc/recipient-bind/v1|"+recipient)),
 	}
 	a.Signature = hexMac(sk, a.canonical())
