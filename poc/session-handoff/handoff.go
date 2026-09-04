@@ -279,6 +279,14 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 	if purpose == "" {
 		return nil, errors.New("handoff: purpose required")
 	}
+	if len(purpose) > 64 {
+		return nil, errors.New("handoff: purpose too long")
+	}
+	for _, sub := range prohibitedFieldSubstrings {
+		if containsFold(purpose, sub) {
+			return nil, errors.New("handoff: purpose carries prohibited material")
+		}
+	}
 	if ttl <= 0 {
 		return nil, errors.New("handoff: ttl must be positive")
 	}
