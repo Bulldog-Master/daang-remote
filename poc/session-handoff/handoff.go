@@ -269,6 +269,7 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 	i.mu.Lock()
 	sk, ok := i.sessionKey[sessionID]
 	clock := i.clock
+	ik := i.issuerKey
 	i.mu.Unlock()
 	if !ok {
 		return nil, errors.New("handoff: unknown session")
@@ -292,7 +293,7 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 		IssuedAt:      now.UnixNano(),
 		ExpiresAt:     now.Add(ttl).UnixNano(),
 		Nonce:         randomHex(16),
-		TargetCap:     randomHex(8),
+		TargetCap:     hexMac(ik, []byte("dhr-poc/target-handle/v1|"+recipient))[:16],
 		RecipientBind: hexMac(sk, []byte("dhr-poc/recipient-bind/v1|"+recipient)),
 	}
 	a.Signature = hexMac(sk, a.canonical())
