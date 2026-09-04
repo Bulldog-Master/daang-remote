@@ -324,7 +324,6 @@ type sessionState struct {
 	key         []byte
 	recipient   string
 	granted     map[Capability]bool
-	revoked     map[Capability]bool
 	invalidated bool
 	seenNonce   map[string]bool
 }
@@ -335,6 +334,7 @@ type Validator struct {
 	mu       sync.Mutex
 	self     string
 	sessions map[string]*sessionState
+	revoked  map[Capability]bool
 	events   []Event
 	clock    func() time.Time
 }
@@ -344,6 +344,7 @@ func NewValidator(self string) *Validator {
 	return &Validator{
 		self:     self,
 		sessions: map[string]*sessionState{},
+		revoked:  map[Capability]bool{},
 		clock:    time.Now,
 	}
 }
@@ -369,7 +370,6 @@ func (v *Validator) InstallSession(sessionID string, key []byte, recipient strin
 		key:       append([]byte(nil), key...),
 		recipient: recipient,
 		granted:   g,
-		revoked:   map[Capability]bool{},
 		seenNonce: map[string]bool{},
 	}
 	v.events = append(v.events, Event{
@@ -473,7 +473,7 @@ func (v *Validator) Use(a *Artifact, cap Capability) error {
 			break
 		}
 	}
-	if !artifactGrants || !st.granted[cap] || st.revoked[cap] {
+	if !artifactGrants || !st.granted[cap] || v.revoked[cap] {
 		v.events = append(v.events, Event{
 			Type: EventCapabilityDenied, SessionID: a.SessionID,
 			Capability: cap, At: v.clock(),
@@ -497,7 +497,7 @@ func (v *Validator) Revoke(sessionID string, cap Capability, proof []byte) error
 	if len(proof) == 0 || !hmac.Equal(proof, st.key) {
 		return errors.New("handoff: bad proof")
 	}
-	st.revoked[cap] = true
+	v.revoked[cap] = true
 	v.events = append(v.events, Event{
 		Type: EventCapabilityRevoked, SessionID: sessionID,
 		Capability: cap, At: v.clock(),
