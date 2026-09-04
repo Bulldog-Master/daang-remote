@@ -87,6 +87,7 @@ type Event struct {
 // authentication secret, or production key material.
 type Artifact struct {
 	Version       int          `json:"version"`
+	IssuerID      string       `json:"issuer_id"`
 	SessionID     string       `json:"session_id"`
 	Recipient     string       `json:"recipient"`
 	Purpose       string       `json:"purpose"`
@@ -107,6 +108,7 @@ func (a *Artifact) canonical() []byte {
 	sort.Slice(caps, func(i, j int) bool { return caps[i] < caps[j] })
 	aux := struct {
 		V   int          `json:"v"`
+		I   string       `json:"i"`
 		SID string       `json:"sid"`
 		R   string       `json:"r"`
 		P   string       `json:"p"`
@@ -115,7 +117,7 @@ func (a *Artifact) canonical() []byte {
 		EA  int64        `json:"ea"`
 		N   string       `json:"n"`
 		T   string       `json:"t"`
-	}{a.Version, a.SessionID, a.Recipient, a.Purpose, caps, a.IssuedAt, a.ExpiresAt, a.Nonce, a.TargetCap}
+	}{a.Version, a.IssuerID, a.SessionID, a.Recipient, a.Purpose, caps, a.IssuedAt, a.ExpiresAt, a.Nonce, a.TargetCap}
 	b, err := json.Marshal(aux)
 	if err != nil {
 		panic(fmt.Errorf("canonical marshal: %w", err))
@@ -224,6 +226,7 @@ func lower(s string) string {
 // piece of global authority; per-session material is scoped to its session.
 type Issuer struct {
 	mu         sync.Mutex
+	id         string
 	issuerKey  []byte
 	sessionKey map[string][]byte
 	clock      func() time.Time
@@ -236,6 +239,7 @@ func NewIssuer() *Issuer {
 		panic(err)
 	}
 	return &Issuer{
+		id:         randomHex(8),
 		issuerKey:  k,
 		sessionKey: map[string][]byte{},
 		clock:      time.Now,
@@ -269,6 +273,7 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 	i.mu.Lock()
 	sk, ok := i.sessionKey[sessionID]
 	clock := i.clock
+	issuerID := i.id
 	i.mu.Unlock()
 	if !ok {
 		return nil, errors.New("handoff: unknown session")
@@ -285,6 +290,7 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 	now := clock()
 	a := &Artifact{
 		Version:       1,
+		IssuerID:      issuerID,
 		SessionID:     sessionID,
 		Recipient:     recipient,
 		Purpose:       purpose,

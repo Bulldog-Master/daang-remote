@@ -329,6 +329,7 @@ func TestSerializedFieldSurfacesClosed(t *testing.T) {
 		"capabilities",
 		"expires_at_unix_nano",
 		"issued_at_unix_nano",
+		"issuer_id",
 		"nonce",
 		"purpose",
 		"recipient",
