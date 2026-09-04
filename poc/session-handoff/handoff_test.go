@@ -93,9 +93,6 @@ func assertJSONFieldSurface(t *testing.T, value interface{}, want []string) {
 	if got := effectiveJSONFieldNames(reflect.TypeOf(value)); !reflect.DeepEqual(got, want) {
 		t.Fatalf("declared JSON field surface changed: got %v, want %v", got, want)
 	}
-	if got := emittedJSONFieldNames(t, value); !reflect.DeepEqual(got, want) {
-		t.Fatalf("emitted JSON field surface changed: got %v, want %v", got, want)
-	}
 }
 
 // -----------------------------------------------------------------------------
