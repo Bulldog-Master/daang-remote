@@ -348,6 +348,7 @@ func TestSerializedFieldSurfacesClosed(t *testing.T) {
 	assertJSONFieldSurface(t, event, []string{
 		"at",
 		"capability",
+		"recipient",
 		"session_id",
 		"type",
 	})
