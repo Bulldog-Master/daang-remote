@@ -56,11 +56,11 @@ var AllCapabilities = []Capability{
 type EventType string
 
 const (
-	EventSessionStarted     EventType = "session_started"
-	EventSessionEnded       EventType = "session_ended"
-	EventCapabilityDenied   EventType = "capability_denied"
-	EventCapabilityRevoked  EventType = "capability_revoked"
-	EventSessionInvalidated EventType = "session_invalidated"
+	EventSessionStarted    EventType = "session_started"
+	EventSessionEnded      EventType = "session_ended"
+	EventCapabilityDenied  EventType = "capability_denied"
+	EventCapabilityRevoked EventType = "capability_revoked"
+	EventSessionKilled     EventType = "session_invalidated"
 )
 
 // Event carries only bounded lifecycle information scoped to one session.
@@ -519,7 +519,7 @@ func (v *Validator) Invalidate(sessionID string, proof []byte) error {
 	}
 	st.invalidated = true
 	v.events = append(v.events, Event{
-		Type: EventSessionInvalidated, SessionID: sessionID, At: v.clock(),
+		Type: EventSessionKilled, SessionID: sessionID, At: v.clock(),
 	})
 	return nil
 }
