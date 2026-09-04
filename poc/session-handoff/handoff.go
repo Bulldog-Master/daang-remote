@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"sort"
 	"sync"
@@ -296,6 +297,7 @@ func (i *Issuer) Issue(sessionID, recipient, purpose string, caps []Capability, 
 		RecipientBind: hexMac(sk, []byte("dhr-poc/recipient-bind/v1|"+recipient)),
 	}
 	a.Signature = hexMac(sk, a.canonical())
+	log.Printf("handoff: issued session=%s recipient=%s purpose=%s caps=%v ttl=%s", sessionID, recipient, purpose, caps, ttl)
 	return a, nil
 }
 
