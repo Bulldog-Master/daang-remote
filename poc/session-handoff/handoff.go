@@ -73,6 +73,7 @@ type Event struct {
 	Type       EventType  `json:"type"`
 	SessionID  string     `json:"session_id"`
 	Capability Capability `json:"capability,omitempty"`
+	ClientHint string     `json:"client_hint,omitempty"`
 	At         time.Time  `json:"at"`
 }
 
@@ -334,6 +335,7 @@ type sessionState struct {
 type Validator struct {
 	mu       sync.Mutex
 	self     string
+	hint     string
 	sessions map[string]*sessionState
 	events   []Event
 	clock    func() time.Time
@@ -346,6 +348,14 @@ func NewValidator(self string) *Validator {
 		sessions: map[string]*sessionState{},
 		clock:    time.Now,
 	}
+}
+
+// SetClientHint attaches a stable operator-supplied client label (for
+// example a machine name) to every event this validator emits.
+func (v *Validator) SetClientHint(hint string) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.hint = hint
 }
 
 // SetClock overrides the clock (for deterministic tests).
@@ -373,7 +383,7 @@ func (v *Validator) InstallSession(sessionID string, key []byte, recipient strin
 		seenNonce: map[string]bool{},
 	}
 	v.events = append(v.events, Event{
-		Type: EventSessionStarted, SessionID: sessionID, At: v.clock(),
+		Type: EventSessionStarted, SessionID: sessionID, ClientHint: v.hint, At: v.clock(),
 	})
 }
 
@@ -476,7 +486,7 @@ func (v *Validator) Use(a *Artifact, cap Capability) error {
 	if !artifactGrants || !st.granted[cap] || st.revoked[cap] {
 		v.events = append(v.events, Event{
 			Type: EventCapabilityDenied, SessionID: a.SessionID,
-			Capability: cap, At: v.clock(),
+			Capability: cap, ClientHint: v.hint, At: v.clock(),
 		})
 		return errors.New("handoff: capability denied")
 	}
@@ -500,7 +510,7 @@ func (v *Validator) Revoke(sessionID string, cap Capability, proof []byte) error
 	st.revoked[cap] = true
 	v.events = append(v.events, Event{
 		Type: EventCapabilityRevoked, SessionID: sessionID,
-		Capability: cap, At: v.clock(),
+		Capability: cap, ClientHint: v.hint, At: v.clock(),
 	})
 	return nil
 }
@@ -519,7 +529,7 @@ func (v *Validator) Invalidate(sessionID string, proof []byte) error {
 	}
 	st.invalidated = true
 	v.events = append(v.events, Event{
-		Type: EventSessionInvalidated, SessionID: sessionID, At: v.clock(),
+		Type: EventSessionInvalidated, SessionID: sessionID, ClientHint: v.hint, At: v.clock(),
 	})
 	return nil
 }
@@ -537,7 +547,7 @@ func (v *Validator) EndSession(sessionID string, proof []byte) error {
 	}
 	st.invalidated = true
 	v.events = append(v.events, Event{
-		Type: EventSessionEnded, SessionID: sessionID, At: v.clock(),
+		Type: EventSessionEnded, SessionID: sessionID, ClientHint: v.hint, At: v.clock(),
 	})
 	return nil
 }

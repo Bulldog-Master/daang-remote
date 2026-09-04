@@ -343,11 +343,13 @@ func TestSerializedFieldSurfacesClosed(t *testing.T) {
 		Type:       EventCapabilityDenied,
 		SessionID:  "session",
 		Capability: CapViewScreen,
+		ClientHint: "hint",
 		At:         time.Unix(0, 0).UTC(),
 	}
 	assertJSONFieldSurface(t, event, []string{
 		"at",
 		"capability",
+		"client_hint",
 		"session_id",
 		"type",
 	})
